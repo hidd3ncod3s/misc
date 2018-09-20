@@ -1,0 +1,172 @@
+<ruby>
+
+require 'csv'
+require 'pp'
+require 'find'
+require 'nokogiri'
+require 'set'
+
+# Dump all the reference information from the metasploit modules.
+# Copy this to resources folder.
+# msf5 > resource dumpmetasploitrefinfo.rc
+
+$debugme= true
+$debugme= false
+
+def main
+    print_line("Dumping metasploit information.")
+	print_line("========START - Basic Stat===============")
+	stats       = framework.stats
+	exp_aux_pos = "#{stats.num_exploits} exploits - #{stats.num_auxiliary} auxiliary - #{stats.num_post} post"
+	print_line(exp_aux_pos)
+	print_line("========END - Basic Stat===============\n")
+
+	print_line("========START - Exploit reference information===============")
+	
+	CSV.open("metasploitrefinfodump.csv", "w") do |csv|
+	
+		csv_hdr= ["MSFRefName", "Name", "CVE", "CWE", "BID", "OVE", "MSB", "EDB", "US-CERT-VU", "ZDI", "WPVDB", "PACKETSTORM", "URL", "AKA", "OSVDB", "PMASA", "waraxe", "SECUNIA", "VTS"]
+		# print_line(csv_hdr)
+		csv << csv_hdr 
+		
+		framework.exploits.sort.each { |refname, mod|
+			if $debugme == true
+				print_line("RefName       : " + refname + "\n")
+			end
+			
+			
+			# if refname.include? "/local/" or 
+			   # refname.include? "/browser/" or
+			   # refname.include? "/fileformat/"
+				# print_line(refname)
+				# next
+			# end
+			
+			o = nil
+
+			begin
+				o = mod.new
+			rescue ::Exception
+			end
+			next if not o
+			
+			#print_line("Name       : " + o.name)
+			#print_line("Description: " + o.description)
+			#print_line("Author     : " + o.author.to_s())
+			#print_line("License    : " + o.license)
+			#print_line("Privileged : " + o.privileged.to_s())
+			
+			ctxs = { "CVE"         => [], 
+					 #"CVE-ID"      => [],  # duplicate context type
+					 "CWE"         => [],
+					 "BID"         => [],
+					 "OVE"         => [],
+					 "MSB"         => [],
+					 # "MS"          => [],   # duplicate context type
+					 "EDB"         => [],
+					 "US-CERT-VU"  => [],
+					 "ZDI"         => [],
+					 "WPVDB"       => [],
+					 "PACKETSTORM" => [],
+					 "URL"         => [],
+					 "AKA"         => [],
+					 "OSVDB"       => [],
+					 # "OSVEB"       => [], # spelling mistake
+					 "PMASA"       => [],
+					 "waraxe"      => [],
+					 "SECUNIA"     => [],
+					 # "EBD"         => [], # spelling mistake
+					 "VTS"         => [],
+				   }
+			
+			#print_line("References : \n")
+			if $debugme == true
+				print "Started processing the references.\n"
+			end
+			
+			o.references.map{ |x|
+				if $debugme == true
+					print "x.ctx_id = " + x.ctx_id
+					print "x.ctx_val= " + x.ctx_val.to_s
+				end
+			
+				ctx_id = x.ctx_id.to_s.strip
+				# ctx_val= x.ctx_val.strip.tr! '"'
+				ctx_val= x.ctx_val.to_s.strip
+				#print_line("ctx_id : " + ctx_id)
+				# print_line("ctx_val: " + ctx_val)
+				
+				if ctx_id != 'CVE-ID' and ctx_id != 'OSVEB' and ctx_id != 'MS' and not ctxs.has_key?(ctx_id)
+					print_line("Unknown context='" + ctx_id + "'")
+					print_line("context value='" + ctx_val + "'")
+					print_line("Name       : " + o.name)
+					# return
+				end
+				
+				if ctx_id == 'CVE-ID'
+					ctx_id= 'CVE'
+				end
+				
+				if ctx_id == 'OSVEB'
+					ctx_id= 'OSVDB'
+				end
+				
+				if ctx_id == 'MS'
+					ctx_id= 'MSB'
+				end
+				
+				if ctx_id == 'EBD'
+					ctx_id= 'EDB'
+				end
+				
+				if ctx_id == "CVE"
+					# print_line("old val       : " + ctx_val)
+					if not ctx_val.start_with? "CVE-"
+						# print_line("Not starting with CVE-")
+						ctx_val= "CVE-" + ctx_val
+					end
+					# print_line("new val       : " + ctx_val)
+					# return
+					
+				end
+				
+				ctxs[ctx_id].append(ctx_val)
+				# ctxs[ctx_id].append('s')
+				# ctxs[ctx_id]= ["row", "of", "CSV", "data"]
+				
+				if ctxs[ctx_id].count > 1 and 
+				   (ctx_id != "URL" and
+					ctx_id != "OSVDB" and
+					ctx_id != "MSB" and
+					ctx_id != "EDB" and
+					ctx_id != "PACKETSTORM" and
+					ctx_id != "ZDI" and
+					ctx_id != "BID" and
+					ctx_id != "WPVDB" and
+					ctx_id != "AKA" and
+					ctx_id != "CVE")
+					# print_line("More than one reference for this context " + ctx_id)
+					# return
+				end
+			}
+			
+			if $debugme == true
+				print "Finished processing the references.\n"
+			end
+			
+			
+			
+			# csv_hdr= ["MSFRefName", "Name", "CVE", "CWE", "BID", "OVE", "MSB", "EDB", "US-CERT-VU", "ZDI", "WPVDB", "PACKETSTORM", "URL", "AKA", "OSVDB", "PMASA", "waraxe", "SECUNIA", "VTS"]
+			csv << ["exploits/" + refname, o.name, ctxs['CVE'], ctxs["CWE"], ctxs["BID"], ctxs["OVE"], ctxs["MSB"], ctxs["EDB"], ctxs["US-CERT-VU"], ctxs["ZDI"], ctxs["WPVDB"], ctxs["PACKETSTORM"], ctxs["URL"], ctxs["AKA"], ctxs["OSVDB"], ctxs["PMASA"], ctxs["waraxe"], ctxs["SECUNIA"], ctxs["VTS"]] 
+			
+			if $debugme == true
+				print "Try the next one.\n"
+			end
+		}
+		print_line("========END - Exploit reference information===============")
+	end
+end
+
+main
+
+</ruby>
