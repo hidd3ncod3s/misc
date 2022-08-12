@@ -1,0 +1,3 @@
+https://github.com/tst2005googlecode/random-wireshark-dissectors/blob/master/teamviewer.lua
+https://web.archive.org/web/20190411063636/https://www.optiv.com/blog/teamviewer-authentication-protocol-part-1-of-3
+https://aristanetworks.force.com/AristaCommunity/s/article/Security-Analysis-TeamViewer
